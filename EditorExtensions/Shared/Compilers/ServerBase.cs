@@ -10,194 +10,273 @@ using System.Threading.Tasks;
 
 namespace MadsKristensen.EditorExtensions
 {
-    public abstract class ServerBase : IDisposable
-    {
-        private Process _process;
-        private string _address;
+	public abstract class ServerBase : IDisposable
+	{
+		private Process _process;
+		private bool _outsideProcess;
+		private string _address;
+		private int _basePort;
+		private string _baseAuthenticationToken;
 
-        protected int BasePort { get; private set; }
-        protected string BaseAuthenticationToken { get; private set; }
+		public bool ShowWindow { get; set; }
 
-        protected ServerBase(string processStartArgumentsFormat, string serverPath)
-        {
-            SelectAvailablePort();
-            _address = string.Format(CultureInfo.InvariantCulture, "http://localhost.:{0}/", BasePort);
-            Client = new HttpClient();
+		protected int BasePort
+		{
+			get
+			{
+				return _basePort;
+			}
+			set
+			{
+				if (_process != null)
+					throw new InvalidOperationException("BasePort cannot be changed once server is started.");
 
-            Initialize(processStartArgumentsFormat, serverPath);
-        }
+				_basePort = value;
+				_address = "http://localhost.:" + BasePort.ToString(CultureInfo.InvariantCulture) + "/";
+			}
+		}
 
-        private void SelectAvailablePort()
-        {
-            Random rand = new Random();
-            TcpConnectionInformation[] connections = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
+		protected string BaseAuthenticationToken
+		{
+			get
+			{
+				if (_baseAuthenticationToken == null)
+				{
+					byte[] randomNumber = new byte[32];
 
-            do
-                BasePort = rand.Next(1024, 65535);
-            while (connections.Any(t => t.LocalEndPoint.Port == BasePort));
-        }
+					using (RandomNumberGenerator crypto = RNGCryptoServiceProvider.Create())
+						crypto.GetBytes(randomNumber);
 
-        protected HttpClient Client { get; set; }
+					_baseAuthenticationToken = Convert.ToBase64String(randomNumber);
+				}
+				return _baseAuthenticationToken;
+			}
+		}
 
-        protected virtual string HeartbeatCheckPath { get { return ""; } }
+		private void SelectAvailablePort()
+		{
+			Random rand = new Random();
+			TcpConnectionInformation[] connections = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections();
 
-        private void Initialize(string processStartArgumentsFormat, string serverPath)
-        {
-            byte[] randomNumber = new byte[32];
+			do
+				BasePort = rand.Next(1024, 65535);
+			while (connections.Any(t => t.LocalEndPoint.Port == BasePort));
+		}
 
-            using (RandomNumberGenerator crypto = RNGCryptoServiceProvider.Create())
-                crypto.GetBytes(randomNumber);
+		protected HttpClient Client { get; set; }
 
-            BaseAuthenticationToken = Convert.ToBase64String(randomNumber);
+		protected virtual string HeartbeatCheckPath { get { return ""; } }
 
-            ProcessStartInfo start = new ProcessStartInfo(serverPath)
-            {
-                WorkingDirectory = Path.GetDirectoryName(serverPath),
-                WindowStyle = ProcessWindowStyle.Hidden,
-                Arguments = string.Format(CultureInfo.InvariantCulture, processStartArgumentsFormat,
-                                         BasePort, BaseAuthenticationToken, Process.GetCurrentProcess().Id),
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
+		protected ServerBase()
+		{
+			Client = new HttpClient();
+		}
 
-            _process = Process.Start(start);
-        }
+		protected abstract void StartServer();
 
-        private void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                try
-                {
-                    if (!_process.HasExited)
-                        _process.Kill();
-                }
-                catch (InvalidOperationException) { }
-                catch { throw; }
+		protected void InitializeExternalProcess()
+		{
+			_address = string.Format(CultureInfo.InvariantCulture, "http://127.0.0.1:{0}/", BasePort);
+			Client = new HttpClient();
 
-                Client.Dispose();
-            }
-        }
+			_process = null;
+			_outsideProcess = true;
+			Logger.Log(string.Format("Using outside server process for {0}", _address));
+		}
 
-        protected static async Task<T> Up<T>(T server)
-            where T : ServerBase, new()
-        {
-            AsyncLock mutex = new AsyncLock();
+		protected void Initialize(string processStartArgumentsFormat, string serverPath)
+		{
+			if (BasePort == 0)
+				SelectAvailablePort();
+			_address = string.Format(CultureInfo.InvariantCulture, "http://127.0.0.1:{0}/", BasePort);
 
-            if (await HeartbeatCheck(server))
-                return server;
+			if (!File.Exists(serverPath))
+			{
+				Logger.Log(string.Format("Could not start server process for {0} - file not found", _address));
+			}
 
-            int tries = 0;
-            while (true)
-            {
-                using (await mutex.LockAsync())
-                {
-                    if (server == null || server._process == null || server._process.HasExited)
-                        server = new T();
-                }
+			try
+			{
+				ProcessStartInfo start = new ProcessStartInfo(serverPath)
+				{
+					WorkingDirectory = Path.GetDirectoryName(serverPath),
+					WindowStyle = ShowWindow ? ProcessWindowStyle.Normal : ProcessWindowStyle.Hidden,
+					Arguments = string.Format(CultureInfo.InvariantCulture, processStartArgumentsFormat,
+											 BasePort, BaseAuthenticationToken, Process.GetCurrentProcess().Id),
+					UseShellExecute = false,
+					CreateNoWindow = !ShowWindow
+				};
 
-                using (Task task = Task.Delay(200))
-                {
-                    Logger.Log(string.Format("Looking for resource @ {0}", server._address));
-                    await task.ConfigureAwait(false);
+				_process = Process.Start(start);
+				Logger.Log(string.Format("Started server process ({0}) for {1}", _process.Id, _address));
+			}
+			catch (FileNotFoundException ex)
+			{
+				Logger.Log(string.Format("Could not start server process for {0} - file not found", _address));
+				if (_process != null)
+					_process.Dispose();
+				_process = null;
+			}
+			catch (Exception ex)
+			{
+				Logger.Log(string.Format("Could not start server process for {0} - exception: {1} {2}", _address, ex.GetType(), ex.Message));
+				if (_process != null)
+					_process.Dispose();
+				_process = null;
+			}
+		}
 
-                    if (await HeartbeatCheck(server))
-                        break;
-                    else
-                    {
-                        if(server._process.HasExited)
-                        {
-                            Logger.Log("Unable to start resource, aborting");
-                            server.Dispose();
-                            return null;
-                        }
+		private void Dispose(bool disposing)
+		{
+			if (disposing)
+			{
+				if (_process != null)
+				{
+					if (!_process.HasExited)
+					{
+						try
+						{
+							Logger.Log(string.Format("(Server.Dispose) Killing process {0}", _process.Id));
+							_process.Kill();
+						}
+						catch (InvalidOperationException) { }
+					}
 
-                        tries++;
-                        if (tries > 5)
-                        {
-                            Logger.Log("Unable to find resource, aborting");
-                            if (!server._process.HasExited)
-                                server._process.Kill();
+					_process.Dispose();
+					_process = null;
+				}
+				Client.Dispose();
+			}
+		}
 
-                            return null;
-                        }
-                    }
-                }
-            }
+		protected static async Task<T> Up<T>(T server)
+			where T : ServerBase, new()
+		{
+			AsyncLock mutex = new AsyncLock();
 
-            return server;
-        }
+			if (await HeartbeatCheck(server))
+				return server;
 
-        protected static void Down<T>(T server)
-            where T : ServerBase, new()
-        {
-            if (server != null && !server._process.HasExited)
-            {
-                server._process.Kill();
-                server._process.Dispose();
-                server.Dispose();
-            }
-        }
+			int tries = 0;
+			while (true)
+			{
+				using (await mutex.LockAsync())
+				{
+					if (server != null && server._process != null && server._process.HasExited)
+					{
+						Logger.Log(string.Format("Server process exited and needs to be restarted ({0}).", server._address));
+						server.Dispose();
+						server = null;
+					}
+					if (server == null || (!server._outsideProcess && (server._process == null || server._process.HasExited)))
+					{
+						Logger.Log("Starting server process...");
+						server = new T();
+						server.StartServer();
 
-        private static async Task<bool> HeartbeatCheck<T>(T _server)
-            where T : ServerBase, new()
-        {
-            if (_server == null) return false;
-            try
-            {
-                HttpResponseMessage response = await _server.CallWebServer(_server._address + _server.HeartbeatCheckPath);
-                if (response.StatusCode == System.Net.HttpStatusCode.OK)
-                    return true;
-                else
-                    return false;
-            }
-            catch { return false; }
-        }
+					}
+				}
 
-        protected async Task<CompilerResult> CallService(string path, bool reattempt)
-        {
-            string newPath = string.Format("{0}?{1}", _address, path);
-            HttpResponseMessage response;
-            try
-            {
-                response = await CallWebServer(newPath);
+				using (Task task = Task.Delay(200))
+				{
+					Logger.Log(string.Format("Looking for resource @ {0}", server._address));
+					await task.ConfigureAwait(false);
 
-                // Retry once.
-                if (!response.IsSuccessStatusCode && !reattempt)
-                    return await RetryOnce(path);
+					if (await HeartbeatCheck(server))
+						break;
+					else
+					{
+						if (!server._outsideProcess && (server._process == null || server._process.HasExited))
+						{
+							Logger.Log("Unable to start resource, aborting");
+							server.Dispose();
+							return null;
+						}
 
-                var responseData = await response.Content.ReadAsAsync<NodeServerUtilities.Response>();
+						tries++;
+						if (tries > 5)
+						{
+							Logger.Log("Unable to find resource, aborting");
+							if (!server._outsideProcess && server._process != null && !server._process.HasExited)
+							{
+								Logger.Log("Killing server process...");
+								server._process.Kill();
+							}
 
-                return await responseData.GetCompilerResult();
-            }
-            catch
-            {
-                Logger.Log("Something went wrong reaching: " + Uri.EscapeUriString(newPath));
-            }
+							return null;
+						}
+					}
+				}
+			}
 
-            // Retry once.
-            if (!reattempt)
-                return await RetryOnce(path);
+			return server;
+		}
 
-            return null;
-        }
+		protected static void Down<T>(T server)
+			where T : ServerBase, new()
+		{
+			if (server != null)
+				server.Dispose();
+		}
 
-        private async Task<CompilerResult> RetryOnce(string path)
-        {
-            return await NodeServer.CallServiceAsync(path, true);
-        }
+		private static async Task<bool> HeartbeatCheck<T>(T server)
+			where T : ServerBase, new()
+		{
+			if (server == null) return false;
+			try
+			{
+				HttpResponseMessage response = await server.CallWebServer(server._address + server.HeartbeatCheckPath);
+				if (response.StatusCode == System.Net.HttpStatusCode.OK)
+					return true;
+				return false;
+			}
+			catch { return false; }
+		}
 
-        // Making this a separate method so it can throw to caller
-        // which is a test criterion for HearbeatCheck.
-        private async Task<HttpResponseMessage> CallWebServer(string path)
-        {
-            return await Client.GetAsync(path).ConfigureAwait(false);
-        }
+		protected async Task<CompilerResult> CallService(string path, bool reattempt)
+		{
+			string newPath = string.Format("{0}?{1}", _address, path);
+			HttpResponseMessage response;
+			try
+			{
+				response = await CallWebServer(newPath);
 
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-    }
+				// Retry once.
+				if (!response.IsSuccessStatusCode && !reattempt)
+					return await RetryOnce(path);
+
+				var responseData = await response.Content.ReadAsAsync<NodeServerUtilities.Response>();
+
+				return await responseData.GetCompilerResult();
+			}
+			catch
+			{
+				Logger.Log("Something went wrong reaching: " + Uri.EscapeUriString(newPath));
+			}
+
+			// Retry once.
+			if (!reattempt)
+				return await RetryOnce(path);
+
+			return null;
+		}
+
+		private async Task<CompilerResult> RetryOnce(string path)
+		{
+			return await NodeServer.CallServiceAsync(path, true);
+		}
+
+		// Making this a separate method so it can throw to caller
+		// which is a test criterion for HearbeatCheck.
+		private async Task<HttpResponseMessage> CallWebServer(string path)
+		{
+			return await Client.GetAsync(path).ConfigureAwait(false);
+		}
+
+		public void Dispose()
+		{
+			Dispose(true);
+			GC.SuppressFinalize(this);
+		}
+	}
 }

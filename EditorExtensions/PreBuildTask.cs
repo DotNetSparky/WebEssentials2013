@@ -58,8 +58,13 @@ namespace MadsKristensen.EditorExtensions
         Type _directoryInfo;
         Type _file;
 
+        public bool BuildNodeFiles { get; set; }
+        public bool CleanResources { get; set; }
+
         public PreBuildTask()
         {
+            CleanResources = true;
+            BuildNodeFiles = true;
             try
             {
                 Assembly a = null;
@@ -75,56 +80,62 @@ namespace MadsKristensen.EditorExtensions
 
         public override bool Execute()
         {
-            ClearPath(@"resources\nodejs");
+            // TODO: make it so we can clear and rebuild everything EXCEPT preserve nodejs and/or npm (so we can manually install a newer version? or maybe use global version?)
+            if (CleanResources)
+                ClearPath(@"resources\nodejs");
             Directory.CreateDirectory(@"resources\nodejs\tools");
-            // Force npm to install modules to the subdirectory
-            // https://npmjs.org/doc/files/npm-folders.html#More-Information
 
-            // We install our modules in this subdirectory so that
-            // we can clean up their dependencies without catching
-            // npm's modules, which we don't want.
-            File.WriteAllText(@"resources\nodejs\tools\package.json", "{}");
+            if (BuildNodeFiles)
+            {
+                // Force npm to install modules to the subdirectory
+                // https://npmjs.org/doc/files/npm-folders.html#More-Information
 
-            // Since this is a synchronous job, I have
-            // no choice but to synchronously wait for
-            // the tasks to finish. However, the async
-            // still saves threads.
+                // We install our modules in this subdirectory so that
+                // we can clean up their dependencies without catching
+                // npm's modules, which we don't want.
+                File.WriteAllText(@"resources\nodejs\tools\package.json", "{}");
 
-            Task.WaitAll(
-                DownloadNodeAsync(),
-                DownloadNpmAsync()
-            );
+                // Since this is a synchronous job, I have
+                // no choice but to synchronously wait for
+                // the tasks to finish. However, the async
+                // still saves threads.
 
-            var moduleResults = Task.WhenAll(
-                InstallModuleAsync("jscs", "jscs"),
-                InstallModuleAsync("lessc", "less"),
-                InstallModuleAsync("handlebars", "handlebars"),
-                InstallModuleAsync("jshint", "jshint"),
-                InstallModuleAsync("tslint", "tslint"),
-                InstallModuleAsync("node-sass", "node-sass"),
-                InstallModuleAsync("coffee", "coffee-script"),
-                InstallModuleAsync("autoprefixer", "autoprefixer"),
-                InstallModuleAsync("iced", "iced-coffee-script"),
-                InstallModuleAsync("LiveScript", "LiveScript"),
-                InstallModuleAsync("coffeelint", "coffeelint"),
-                InstallModuleAsync("sjs", "sweet.js"),
-                InstallModuleAsync(null, "xregexp"),
-                InstallModuleAsync("rtlcss", "rtlcss"),
-                InstallModuleAsync("cson", "cson")
-            ).Result.Where(r => r != ModuleInstallResult.AlreadyPresent);
+                Task.WaitAll(
+                    DownloadNodeAsync(),
+                    DownloadNpmAsync()
+                );
 
-            if (moduleResults.Contains(ModuleInstallResult.Error))
-                return false;
+                var moduleResults = Task.WhenAll(
+                    InstallModuleAsync("jscs", "jscs"),
+                    InstallModuleAsync("lessc", "less"),
+                    InstallModuleAsync("handlebars", "handlebars"),
+                    InstallModuleAsync("jshint", "jshint"),
+                    InstallModuleAsync("tslint", "tslint"),
+                    InstallModuleAsync("node-sass", "node-sass"),
+                    InstallModuleAsync("coffee", "coffee-script"),
+                    InstallModuleAsync("autoprefixer", "autoprefixer"),
+                    InstallModuleAsync("iced", "iced-coffee-script"),
+                    InstallModuleAsync("LiveScript", "LiveScript"),
+                    InstallModuleAsync("coffeelint", "coffeelint"),
+                    InstallModuleAsync("sjs", "sweet.js"),
+                    InstallModuleAsync(null, "xregexp"),
+                    InstallModuleAsync("rtlcss", "rtlcss"),
+                    InstallModuleAsync("cson", "cson")
+                ).Result.Where(r => r != ModuleInstallResult.AlreadyPresent);
 
-            if (!moduleResults.Any())
-                return true;
+                if (moduleResults.Contains(ModuleInstallResult.Error))
+                    return false;
 
-            Log.LogMessage(MessageImportance.High, "Installed " + moduleResults.Count() + " modules.  Flattening...");
+                if (!moduleResults.Any())
+                    return true;
 
-            if (!FlattenModulesAsync().Result)
-                return false;
+                Log.LogMessage(MessageImportance.High, "Installed " + moduleResults.Count() + " modules.  Flattening...");
 
-            CleanPath(@"resources\nodejs\tools\node_modules");
+                if (!FlattenModulesAsync().Result)
+                    return false;
+
+                CleanPath(@"resources\nodejs\tools\node_modules");
+            }
             return true;
         }
 
@@ -189,7 +200,7 @@ namespace MadsKristensen.EditorExtensions
 
             Log.LogMessage(MessageImportance.High, "Downloading npm ...");
 
-            var npmZip = await WebClientDoAsync(wc => wc.OpenReadTaskAsync("http://nodejs.org/dist/npm/npm-1.3.23.zip"));
+            var npmZip = await WebClientDoAsync(wc => wc.OpenReadTaskAsync("http://nodejs.org/dist/npm/npm-1.4.9.zip"));
 
             try
             {
@@ -258,12 +269,18 @@ namespace MadsKristensen.EditorExtensions
             if (string.IsNullOrEmpty(cmdName))
             {
                 if (File.Exists(@"resources\nodejs\tools\node_modules\" + moduleName + @"\package.json"))
+                {
+                    Log.LogMessage(MessageImportance.Normal, "[skipped - already installed] npm install " + moduleName);
                     return ModuleInstallResult.AlreadyPresent;
+                }
             }
             else
             {
                 if (File.Exists(@"resources\nodejs\tools\node_modules\.bin\" + cmdName + ".cmd"))
+                {
+                    Log.LogMessage(MessageImportance.Normal, "[skipped - already installed] npm install " + moduleName);
                     return ModuleInstallResult.AlreadyPresent;
+                }
             }
 
             Log.LogMessage(MessageImportance.High, "npm install " + moduleName + " ...");
@@ -281,6 +298,7 @@ namespace MadsKristensen.EditorExtensions
 
         async Task<bool> FlattenModulesAsync()
         {
+            Log.LogMessage(MessageImportance.Normal, "npm.cmd dedup");
             var output = await ExecWithOutputAsync(@"cmd", @"/c ..\npm.cmd dedup ", @"resources\nodejs\tools");
 
             if (output != null)
@@ -362,20 +380,31 @@ namespace MadsKristensen.EditorExtensions
 
         /// <summary>Invokes a command-line process asynchronously, capturing its output to a string.</summary>
         /// <returns>Null if the process exited successfully; the process' full output if it failed.</returns>
-        static async Task<string> ExecWithOutputAsync(string filename, string args, string workingDirectory = null)
+        async Task<string> ExecWithOutputAsync(string filename, string args, string workingDirectory = null)
         {
-            var error = new StringWriter();
-            int result = await ExecAsync(filename, args, workingDirectory, null, error);
+            using (var output = new StringWriter())
+            {
+                using (var error = new StringWriter())
+                {
+                    int result = await ExecAsync(filename, args, workingDirectory, output, error);
 
-            return result == 0 ? null : error.ToString().Trim();
+                    return result == 0 ? null : error.ToString().Trim();
+                }
+            }
         }
 
         /// <summary>Invokes a command-line process asynchronously.</summary>
-        static Task<int> ExecAsync(string filename, string args, string workingDirectory = null, TextWriter stdout = null, TextWriter stderr = null)
+        Task<int> ExecAsync(string filename, string args, string workingDirectory = null, TextWriter stdout = null, TextWriter stderr = null)
         {
+            Log.LogMessage(MessageImportance.Normal, "exec: " + filename);
+            if (!string.IsNullOrEmpty(args))
+                Log.LogMessage(MessageImportance.Normal, filename + " args: " + args);
+            if (!string.IsNullOrEmpty(workingDirectory))
+                Log.LogMessage(MessageImportance.Normal, filename + " wd: " + workingDirectory);
             stdout = stdout ?? TextWriter.Null;
             stderr = stderr ?? TextWriter.Null;
 
+            string label = "[" + filename + " " + args + "]";
             var p = new Process
             {
                 StartInfo = new ProcessStartInfo(filename, args)
@@ -391,10 +420,12 @@ namespace MadsKristensen.EditorExtensions
 
             p.OutputDataReceived += (sender, e) =>
             {
+                Log.LogMessage(MessageImportance.Normal, label + " stdout: " + e.Data);
                 stdout.WriteLine(e.Data);
             };
             p.ErrorDataReceived += (sender, e) =>
             {
+                Log.LogMessage(MessageImportance.Normal, label + " stderr: " + e.Data);
                 stderr.WriteLine(e.Data);
             };
 
@@ -415,6 +446,7 @@ namespace MadsKristensen.EditorExtensions
 
         void ExtractZipWithOverwrite(Stream sourceZip, string destinationDirectoryName)
         {
+            Log.LogMessage(MessageImportance.Normal, "Extract zip into: " + destinationDirectoryName);
             using (var source = new ZipArchive(sourceZip, ZipArchiveMode.Read))
             {
                 foreach (var entry in source.Entries)

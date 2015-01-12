@@ -7,12 +7,13 @@ namespace MadsKristensen.EditorExtensions
     {
         private static RubyScssServer _server;
 
-        public RubyScssServer()
-            : base(@"start {0} {1} {2}",
-                   Path.Combine(Path.Combine(Path.GetDirectoryName(typeof(RubyScssServer).Assembly.Location), @"Resources"), @"Tools\sass.exe"))
-        { }
+	    protected override void StartServer()
+	    {
+			Initialize(@"start {0} {1} {2}",
+                   Path.Combine(Path.Combine(Path.GetDirectoryName(typeof(RubyScssServer).Assembly.Location), @"Resources"), @"Tools\sass.exe"));
+	    }
 
-        public static async Task Up()
+	    public static async Task Up()
         {
             _server = await ServerBase.Up(_server);
         }

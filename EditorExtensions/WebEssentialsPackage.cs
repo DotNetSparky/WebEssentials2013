@@ -45,6 +45,7 @@ namespace MadsKristensen.EditorExtensions
     [ProvideOptionPage(typeof(Settings.BrowserLinkOptions), "Web Essentials", "Browser Link", 101, 108, true, new[] { "HTML menu", "BrowserLink" })]
     [ProvideOptionPage(typeof(Settings.CoffeeScriptOptions), "Web Essentials", "CoffeeScript", 101, 106, true, new[] { "Iced", "JavaScript", "JS", "JScript" })]
     [ProvideOptionPage(typeof(Settings.LiveScriptOptions), "Web Essentials", "LiveScript", 101, 106, true, new[] { "LiveScript", "LS", "JavaScript", "JS", "JScript" })]
+    [ProvideOptionPage(typeof(Settings.NodeServiceOptions), "Web Essentials", "Node Service", 101, 212, true, new[] { "Node", "NodeJS" })]
     [SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), PackageRegistration(UseManagedResourcesOnly = true)]
     public sealed class WebEssentialsPackage : Package
     {

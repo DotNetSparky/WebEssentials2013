@@ -33,6 +33,7 @@ namespace MadsKristensen.EditorExtensions.Settings
         public MarkdownSettings Markdown { get; private set; }
         public HandlebarsSettings Handlebars { get; private set; }
         public SweetJsSettings SweetJs { get; private set; }
+        public NodeServiceSettings NodeService { get; private set; }
     }
 
     public sealed class SpriteSettings : SettingsBase<SpriteSettings>

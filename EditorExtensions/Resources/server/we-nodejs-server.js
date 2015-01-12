@@ -92,7 +92,8 @@ var validatePort = function (port) {
 //#region Start
 var start = function (port) {
     function onRequest(request, response) {
-        console.logLine("Request recieved: " + JSON.stringify(request.headers), console.logType.transaction);
+		console.logLine('');
+        console.logLine("Request received: " + JSON.stringify(request.headers), console.logType.transaction);
 
         // Unauthorized access checks (for production environment)
         if (!developmentEnv && !authenticateAll(response, request.headers))
@@ -101,16 +102,27 @@ var start = function (port) {
         response.writeHead(200, { "Content-Type": "application/json" });
         //response.writeHead(200, { "Content-Type": "text/plain" });
 
+		console.logLine("Url: " + request.url);
         var params = url.parse(request.url, true).query;
-
+		if (params)
+			console.logLine("Params: " + JSON.stringify(params, null, '\t'));
+		else
+			console.logLine("Params: NULL");
+		
         try {
             // Change to valid character string and let it respond as the regular (invalid) case
             if (!/^[a-zA-Z0-9_-]+$/.test(params.service))
                 params.service = "invalid-service-name";
 
+			if (params.service)
+				console.logLine("Params.service: " + params.service);
+			else
+				console.logLine("Params.service: NULL");
             var service = require('./services/srv-' + params.service.toLowerCase());
 
             if (!fs.existsSync(params.sourceFileName)) {
+				console.logLine('ws-nodejs-server: unknown service (' + params.sourceFileName + ') - file not found.');
+				console.logLine('');
                 response.write(JSON.stringify({
                     Success: false, Remarks: "Input file not found!"
                 }));
@@ -118,9 +130,17 @@ var start = function (port) {
                 return;
             }
 
+			console.logLine('ws-nodejs-server: calling service');
             service(response, params);
-        } catch (e) {
+
+			console.logLine('ws-nodejs-server: service completed');
+			console.logLine('');
+		} catch (e) {
+			console.logLine('');
+			console.logLine('*** ws-nodejs-server EXCEPTION ***');
+			console.logLine('');
             console.logLine(e.message);
+			console.logLine('');
             response.write(JSON.stringify({ Success: false, Remarks: e.stack }));
             response.end();
         }
