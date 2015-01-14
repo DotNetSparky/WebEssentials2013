@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using MadsKristensen.EditorExtensions.Compilers;
 using MadsKristensen.EditorExtensions.JavaScript;
 using MadsKristensen.EditorExtensions.Settings;
 
@@ -98,6 +100,7 @@ namespace MadsKristensen.EditorExtensions
             if (!File.Exists(globalFile))
             {
                 string extensionDir = Path.GetDirectoryName(typeof(NodeExecutorBase).Assembly.Location);
+                Debug.Assert(extensionDir != null);
                 string settingsFile = Path.Combine(extensionDir, @"Resources\settings-defaults\", fileName);
                 File.Copy(settingsFile, globalFile);
             }

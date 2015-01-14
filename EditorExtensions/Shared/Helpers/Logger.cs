@@ -10,7 +10,7 @@ namespace MadsKristensen.EditorExtensions
 {
     public static class Logger
     {
-        private static IVsOutputWindowPane pane;
+        private static IVsOutputWindowPane _pane;
         private static object _syncRoot = new object();
 
         [SuppressMessage("Microsoft.Usage", "CA1806:DoNotIgnoreMethodResults", MessageId = "Microsoft.VisualStudio.Shell.Interop.IVsOutputWindowPane.OutputString(System.String)")]
@@ -23,7 +23,7 @@ namespace MadsKristensen.EditorExtensions
             {
                 if (EnsurePane())
                 {
-                    pane.OutputString(DateTime.Now.ToString() + ": " + message + Environment.NewLine);
+                    _pane.OutputString(DateTime.Now.ToString() + ": " + message + Environment.NewLine);
                 }
             }
             catch
@@ -57,18 +57,18 @@ namespace MadsKristensen.EditorExtensions
 
         private static bool EnsurePane()
         {
-            if (pane == null)
+            if (_pane == null)
             {
                 lock (_syncRoot)
                 {
-                    if (pane == null)
+                    if (_pane == null)
                     {
-                        pane = WebEssentialsPackage.Instance.GetOutputPane(VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid, "Web Essentials");
+                        _pane = WebEssentialsPackage.Instance.GetOutputPane(VSConstants.OutputWindowPaneGuid.BuildOutputPane_guid, "Web Essentials");
                     }
                 }
             }
 
-            return pane != null;
+            return _pane != null;
         }
     }
 }

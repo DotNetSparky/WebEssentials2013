@@ -1,0 +1,23 @@
+﻿{
+  "name": "webessentials-2013-tools",
+  "description": "Container for nodejs modules used by WebEssentials 2013.",
+  "version": "0.0.1",
+  "private":  true,
+  "dependencies": {
+    "jscs": "*",
+    "less": "*",
+    "handlebars": "*",
+    "jshint": "*",
+    "tslint": "*",
+    "node-sass": "*",
+    "coffee-script": "*",
+    "autoprefixer": "*",
+    "iced-coffee-script": "*",
+    "LiveScript": "*",
+    "coffeelint": "*",
+    "sweet.js": "*",
+    "xregexp": "*",
+    "rtlcss": "*",
+    "cson": "*"
+  }
+}

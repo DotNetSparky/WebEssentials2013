@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel.Design;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -29,23 +30,23 @@ namespace MadsKristensen.EditorExtensions
     [ProvideMenuResource("Menus.ctmenu", 1)]
     [Guid(CommandGuids.guidEditorExtensionsPkgString)]
     [ProvideAutoLoad(UIContextGuids80.SolutionExists)]
-    [InstalledProductRegistration("#110", "#112", WebEssentialsPackage.Version, IconResourceID = 400)]
-    [ProvideOptionPage(typeof(Settings.CssOptions), "Web Essentials", "CSS", 101, 102, true, new[] { "Minify", "Minification", "W3C", "CSS3" })]
-    [ProvideOptionPage(typeof(Settings.LessOptions), "Web Essentials", "LESS", 101, 105, true, new[] { "LESS", "Complier", "Minification", "Minify" })]
-    [ProvideOptionPage(typeof(Settings.HandlebarsOptions), "Web Essentials", "Handlebars", 101, 109, true, new[] { "handlebars", "hbs", "templates" })]
-    [ProvideOptionPage(typeof(Settings.HtmlOptions), "Web Essentials", "HTML", 101, 111, true, new[] { "html", "angular", "xhtml" })]
-    [ProvideOptionPage(typeof(Settings.ScssOptions), "Web Essentials", "SASS", 101, 113, true, new[] { "SASS", "Complier", "Minification", "Minify" })]
-    [ProvideOptionPage(typeof(Settings.SpriteOptions), "Web Essentials", "Sprite", 101, 211, true, new[] { "Sprite", "image" })]
-    [ProvideOptionPage(typeof(Settings.SweetJsOptions), "Web Essentials", "Sweet.js", 101, 111, true, new[] { "Sweet", "SJS", "Sweet.js" })]
-    [ProvideOptionPage(typeof(Settings.GeneralOptions), "Web Essentials", "General", 101, 101, true, new[] { "ZenCoding", "Mustache", "Handlebars", "Comments", "Bundling", "Bundle" })]
-    [ProvideOptionPage(typeof(Settings.CodeGenOptions), "Web Essentials", "Code Generation", 101, 210, true, new[] { "CodeGeneration", "codeGeneration" })]
-    [ProvideOptionPage(typeof(Settings.MarkdownOptions), "Web Essentials", "Markdown", 101, 109, true, new[] { "markdown", "Markdown", "md" })]
-    [ProvideOptionPage(typeof(Settings.TypeScriptOptions), "Web Essentials", "TypeScript", 101, 210, true, new[] { "TypeScript", "TS" })]
-    [ProvideOptionPage(typeof(Settings.JavaScriptOptions), "Web Essentials", "JavaScript", 101, 107, true, new[] { "JScript", "JS", "Minify", "Minification", "EcmaScript" })]
-    [ProvideOptionPage(typeof(Settings.BrowserLinkOptions), "Web Essentials", "Browser Link", 101, 108, true, new[] { "HTML menu", "BrowserLink" })]
-    [ProvideOptionPage(typeof(Settings.CoffeeScriptOptions), "Web Essentials", "CoffeeScript", 101, 106, true, new[] { "Iced", "JavaScript", "JS", "JScript" })]
-    [ProvideOptionPage(typeof(Settings.LiveScriptOptions), "Web Essentials", "LiveScript", 101, 106, true, new[] { "LiveScript", "LS", "JavaScript", "JS", "JScript" })]
-    [ProvideOptionPage(typeof(Settings.NodeServiceOptions), "Web Essentials", "Node Service", 101, 212, true, new[] { "Node", "NodeJS" })]
+    [InstalledProductRegistration("#110", "#112", Version, IconResourceID = 400)]
+    [ProvideOptionPage(typeof(CssOptions), "Web Essentials", "CSS", 101, 102, true, new[] { "Minify", "Minification", "W3C", "CSS3" })]
+    [ProvideOptionPage(typeof(LessOptions), "Web Essentials", "LESS", 101, 105, true, new[] { "LESS", "Complier", "Minification", "Minify" })]
+    [ProvideOptionPage(typeof(HandlebarsOptions), "Web Essentials", "Handlebars", 101, 109, true, new[] { "handlebars", "hbs", "templates" })]
+    [ProvideOptionPage(typeof(HtmlOptions), "Web Essentials", "HTML", 101, 111, true, new[] { "html", "angular", "xhtml" })]
+    [ProvideOptionPage(typeof(ScssOptions), "Web Essentials", "SASS", 101, 113, true, new[] { "SASS", "Complier", "Minification", "Minify" })]
+    [ProvideOptionPage(typeof(SpriteOptions), "Web Essentials", "Sprite", 101, 211, true, new[] { "Sprite", "image" })]
+    [ProvideOptionPage(typeof(SweetJsOptions), "Web Essentials", "Sweet.js", 101, 111, true, new[] { "Sweet", "SJS", "Sweet.js" })]
+    [ProvideOptionPage(typeof(GeneralOptions), "Web Essentials", "General", 101, 101, true, new[] { "ZenCoding", "Mustache", "Handlebars", "Comments", "Bundling", "Bundle" })]
+    [ProvideOptionPage(typeof(CodeGenOptions), "Web Essentials", "Code Generation", 101, 210, true, new[] { "CodeGeneration", "codeGeneration" })]
+    [ProvideOptionPage(typeof(MarkdownOptions), "Web Essentials", "Markdown", 101, 109, true, new[] { "markdown", "Markdown", "md" })]
+    [ProvideOptionPage(typeof(TypeScriptOptions), "Web Essentials", "TypeScript", 101, 210, true, new[] { "TypeScript", "TS" })]
+    [ProvideOptionPage(typeof(JavaScriptOptions), "Web Essentials", "JavaScript", 101, 107, true, new[] { "JScript", "JS", "Minify", "Minification", "EcmaScript" })]
+    [ProvideOptionPage(typeof(BrowserLinkOptions), "Web Essentials", "Browser Link", 101, 108, true, new[] { "HTML menu", "BrowserLink" })]
+    [ProvideOptionPage(typeof(CoffeeScriptOptions), "Web Essentials", "CoffeeScript", 101, 106, true, new[] { "Iced", "JavaScript", "JS", "JScript" })]
+    [ProvideOptionPage(typeof(LiveScriptOptions), "Web Essentials", "LiveScript", 101, 106, true, new[] { "LiveScript", "LS", "JavaScript", "JS", "JScript" })]
+    [ProvideOptionPage(typeof(NodeServiceOptions), "Web Essentials", "Node Service", 101, 212, true, new[] { "Node", "NodeJS" })]
     [SuppressMessage("Microsoft.Maintainability", "CA1506:AvoidExcessiveClassCoupling"), PackageRegistration(UseManagedResourcesOnly = true)]
     public sealed class WebEssentialsPackage : Package
     {
@@ -84,7 +85,7 @@ namespace MadsKristensen.EditorExtensions
 
             Instance = this;
 
-            await NodeServer.Up();
+            //await NodeServer.Up();
             SettingsStore.Load();
             JavaScriptIntellisense.Register();
 
@@ -156,7 +157,7 @@ namespace MadsKristensen.EditorExtensions
             }), DispatcherPriority.ApplicationIdle, null);
         }
 
-        private void BuildEvents_OnBuildDone(vsBuildScope Scope, vsBuildAction Action)
+        private void BuildEvents_OnBuildDone(vsBuildScope scope, vsBuildAction action)
         {
             if (_dte.Solution.SolutionBuild.LastBuildInfo != 0)
             {
@@ -170,7 +171,7 @@ namespace MadsKristensen.EditorExtensions
                 return;
             }
 
-            if (Action == vsBuildAction.vsBuildActionClean)
+            if (action == vsBuildAction.vsBuildActionClean)
             {
                 LintReporter.Reset();
                 return;
@@ -182,6 +183,7 @@ namespace MadsKristensen.EditorExtensions
         private static void InitiateExecutors()
         {
             var compiler = WebEditor.Host.ExportProvider.GetExport<ProjectCompiler>();
+            Debug.Assert(compiler != null);
 
             Task.Run(() =>
             {
@@ -223,16 +225,19 @@ namespace MadsKristensen.EditorExtensions
 
         public static void ExecuteCommand(string commandName, string commandArgs = "")
         {
-            var command = WebEssentialsPackage.DTE.Commands.Item(commandName);
+            var command = DTE.Commands.Item(commandName);
 
             if (!command.IsAvailable)
                 return;
 
             try
             {
-                WebEssentialsPackage.DTE.ExecuteCommand(commandName, commandArgs);
+                DTE.ExecuteCommand(commandName, commandArgs);
             }
-            catch { }
+            catch (Exception ex)
+            {
+                Logger.Log(string.Format("Unexpected exception on ExecuteCommand(\"{2}\", \"{3}\"): {0} {1}", ex.GetType(), ex.Message, commandName, commandArgs));
+            }
         }
 
         private void HandleMenuVisibility(OleMenuCommandService mcs)
@@ -264,7 +269,7 @@ namespace MadsKristensen.EditorExtensions
 
         public static T GetGlobalService<T>(Type type = null) where T : class
         {
-            return Microsoft.VisualStudio.Shell.Package.GetGlobalService(type ?? typeof(T)) as T;
+            return Package.GetGlobalService(type ?? typeof(T)) as T;
         }
 
         public static IComponentModel ComponentModel
@@ -276,7 +281,7 @@ namespace MadsKristensen.EditorExtensions
         ///<remarks>Use this method in a using() block to make sure that exceptions don't break Undo.</remarks>
         public static IDisposable UndoContext(string name)
         {
-            WebEssentialsPackage.DTE.UndoContext.Open(name);
+            DTE.UndoContext.Open(name);
 
             return new Disposable(DTE.UndoContext.Close);
         }

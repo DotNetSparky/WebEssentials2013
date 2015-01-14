@@ -463,5 +463,20 @@ namespace MadsKristensen.EditorExtensions
                  ? fileName
                  : extensions.Select(extension => fileName + extension).FirstOrDefault(File.Exists);
         }
+
+        public static string SearchEnvironmentPath(string fileName)
+        {
+            string path = Environment.GetEnvironmentVariable("PATH");
+            if (!string.IsNullOrEmpty(path))
+            {
+                foreach (string i in path.Split(';'))
+                {
+                    string testPath = Path.Combine(i, fileName);
+                    if (File.Exists(testPath))
+                        return testPath;
+                }
+            }
+            return null;
+        }
     }
 }

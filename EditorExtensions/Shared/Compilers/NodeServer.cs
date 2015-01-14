@@ -3,15 +3,13 @@ using System.IO;
 using System.Threading.Tasks;
 using MadsKristensen.EditorExtensions.Settings;
 
-namespace MadsKristensen.EditorExtensions
+namespace MadsKristensen.EditorExtensions.Compilers
 {
     public sealed class NodeServer : ServerBase
     {
-        //const string DefaultNodePath = @"nodejs\node.exe";
-        const string DefaultNodeServicePath = @"C:\lib\we-node";
-        const string DefaultNodeExePath = @"nodejs\node.exe";
-        const string DefaultNodeArgs = @"tools\server\we-nodejs-server.js --port {0} --anti-forgery-token {1} --environment production --process-id {2}";
-        //const string DefaultWorkingDirectory = @"Resources";
+        const string DefaultNodeServicePath = @"C:\lib\WebEssentials\node-server";
+        const string DefaultNodeExe = @"node.exe";
+        const string DefaultNodeArgs = @"we-nodejs-server.js --port {0} --anti-forgery-token {1} --environment production --process-id {2}";
 
         private static NodeServer _server;
 
@@ -30,20 +28,120 @@ namespace MadsKristensen.EditorExtensions
             await Up();
             if (_server != null)
                 return await _server.CallService(path, reattempt);
-            return CompilerResult.GenerateResult(path, "", "", false, "Unable to start node", "", null, false);
+            return CompilerResult.GenerateResult(path, "", "", false, "Unable to start node", "", null);
         }
 
-        public bool UseExternalNodeService { get { return WESettings.Instance.NodeService.UseExternalNodeService; } }
-        public int ExternalNodeServicePort { get { return WESettings.Instance.NodeService.ExternalNodeServicePort; } }
-        public string NodeServicesPath { get { return WESettings.Instance.NodeService.NodeServicesPath; } }
-        public string ExtraNodeServiceArgs { get { return WESettings.Instance.NodeService.ExtraNodeServiceArgs; } }
-        public string NodeExePath { get { return WESettings.Instance.NodeService.NodeExePath; } }
-        public bool ShowConsoleWindow { get { return WESettings.Instance.NodeService.ShowConsoleWindow; } }
+        string _nodePathUsed;
+
+        public bool UseExternalNodeService { get; set; }
+        public int ExternalNodeServicePort { get; set; }
+        public string NodeServicesPath { get; set; }
+        public string NodeServiceArgs { get; set; }
+        public string NodeExePath { get; set; }
+        public bool ShowConsoleWindow { get; set; }
+
+        public NodeServer()
+        {
+            UseExternalNodeService = WESettings.Instance.NodeService.UseExternalNodeService;
+            ExternalNodeServicePort = WESettings.Instance.NodeService.ExternalNodeServicePort;
+            NodeServicesPath = WESettings.Instance.NodeService.NodeServicesPath;
+            if (string.IsNullOrEmpty(NodeServicesPath))
+                NodeServicesPath = DefaultNodeServicePath;
+            NodeServiceArgs = WESettings.Instance.NodeService.ExtraNodeServiceArgs;
+            if (string.IsNullOrEmpty(NodeServiceArgs))
+                NodeServiceArgs = DefaultNodeArgs;
+            NodeExePath = WESettings.Instance.NodeService.NodeExePath;
+            if (string.IsNullOrEmpty(NodeExePath))
+                NodeExePath = DefaultNodeExe;
+            ShowConsoleWindow = WESettings.Instance.NodeService.ShowConsoleWindow;
+        }
+
+        bool IsExternalNodeServiceOptionsChanged()
+        {
+            return ExternalNodeServicePort != WESettings.Instance.NodeService.ExternalNodeServicePort;
+        }
+
+        bool IsInternalNodeServiceOptionsChanged()
+        {
+            return !string.Equals(NodeServicesPath, WESettings.Instance.NodeService.NodeServicesPath, StringComparison.Ordinal) || !string.Equals(NodeServiceArgs, WESettings.Instance.NodeService.ExtraNodeServiceArgs, StringComparison.Ordinal) || !string.Equals(NodeExePath, WESettings.Instance.NodeService.NodeExePath, StringComparison.Ordinal) || ShowConsoleWindow != WESettings.Instance.NodeService.ShowConsoleWindow;
+        }
+
+        protected override bool IsNeedsRestart()
+        {
+            // did the config change?
+            if (UseExternalNodeService != WESettings.Instance.NodeService.UseExternalNodeService || (UseExternalNodeService && IsExternalNodeServiceOptionsChanged()) || (!UseExternalNodeService && IsInternalNodeServiceOptionsChanged()))
+                return true;
+
+            return base.IsNeedsRestart();
+        }
+
+        bool VerifyNodeInstalled()
+        {
+            bool reportAlternate = false;
+            string nodePath = NodeExePath;
+            if (!string.IsNullOrEmpty(nodePath))
+            {
+                // if a full path was set by the user, try that
+                if (Path.IsPathRooted(nodePath))
+                {
+                    if (VerifyNodeInstalled(nodePath))
+                        return true;
+                }
+                else
+                {
+                    // for relative paths, try the web services directory
+                    // and then try windows environment paths
+                    string searchPath = Path.Combine(NodeServicesPath, nodePath);
+                    if (VerifyNodeInstalled(searchPath))
+                        return true;
+
+                    searchPath = FileHelpers.SearchEnvironmentPath(nodePath);
+                    if (!string.IsNullOrEmpty(searchPath) && VerifyNodeInstalled(searchPath))
+                        return true;
+                }
+                Logger.Log(string.Format("Cannot find node.js using '{0}'.", nodePath));
+                reportAlternate = true;
+            }
+            // if path wasn't set and/or it couldn't be found, then try the default node.js install locations
+            string appFolder = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (!string.IsNullOrEmpty(appFolder))
+            {
+                string path = Path.Combine(appFolder, DefaultNodeExe);
+                if (VerifyNodeInstalled(path))
+                {
+                    if (reportAlternate)
+                        Logger.Log(string.Format("Using node.js at {0}. You should update your WebEssentials configuration.", path));
+                    return true;
+                }
+            }
+            appFolder = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            if (!string.IsNullOrEmpty(appFolder))
+            {
+                string path = Path.Combine(appFolder, DefaultNodeExe);
+                if (VerifyNodeInstalled(path))
+                {
+                    if (reportAlternate)
+                        Logger.Log(string.Format("Using node.js at {0}. You should update your WebEssentials configuration.", path));
+                    return true;
+                }
+            }
+            if (!reportAlternate)
+                Logger.Log("Cannot find node.js, is it installed? You can specify the path in the options for WebEssentials.");
+            return false;
+        }
+
+        bool VerifyNodeInstalled(string path)
+        {
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                _nodePathUsed = path;
+                return true;
+            }
+            return false;
+        }
 
         protected override void StartServer()
         {
-            // TODO: make it so changing settings will restart existing node server
-
             ShowWindow = ShowConsoleWindow;
 
             if (UseExternalNodeService)
@@ -51,22 +149,20 @@ namespace MadsKristensen.EditorExtensions
                 BasePort = ExternalNodeServicePort;
                 if (ExternalNodeServicePort > 0)
                     InitializeExternalProcess();
+                else
+                    Logger.Log("WebEssentials is configured to use an external node service, but the port number has not been set. Update your WebEssentials options to fix this error.");
             }
             else
             {
-                string wd = NodeServicesPath;
-                if (string.IsNullOrEmpty(wd))
-                    wd = DefaultNodeServicePath;
-                string nodePath = NodeExePath;
-                if (string.IsNullOrEmpty(nodePath))
-                    nodePath = DefaultNodeExePath;
-                string args = ExtraNodeServiceArgs;
-                if (string.IsNullOrEmpty(args))
-                    args = DefaultNodeArgs;
-                if (!Path.IsPathRooted(wd))
-                    wd = Path.Combine(Path.GetDirectoryName(typeof(NodeServer).Assembly.Location), wd);
-                nodePath = Path.Combine(wd, nodePath);
-                Initialize(args, nodePath);
+                if (!VerifyNodeInstalled())
+                    return;
+
+//                string wd = NodeServicesPath;
+                // TODO: still setup a local install relative to the extension directory by default, so that separate instances of the extension can have their own versions (separate VS installs, or the experiemental instance, etc.)
+//                if (!Path.IsPathRooted(wd))
+//                    wd = Path.Combine(Path.GetDirectoryName(typeof(NodeServer).Assembly.Location), wd);
+
+                Initialize(NodeServiceArgs, _nodePathUsed);
             }
 
             Client.DefaultRequestHeaders.Add("origin", "web essentials");
