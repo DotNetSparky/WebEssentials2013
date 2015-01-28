@@ -30,6 +30,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{6A26D6
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NodeServiceInstaller", "NodeServiceInstaller\NodeServiceInstaller.csproj", "{4A914E01-3717-4CB3-AD84-863EF46B2A5A}"
 EndProject
+Project("{9092AA53-FB77-4645-B42D-1CCCA6BD08BD}") = "we-node", "we-node\we-node.njsproj", "{F6368507-DA3F-4852-8BD8-1713AE520D0C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{4A914E01-3717-4CB3-AD84-863EF46B2A5A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4A914E01-3717-4CB3-AD84-863EF46B2A5A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4A914E01-3717-4CB3-AD84-863EF46B2A5A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6368507-DA3F-4852-8BD8-1713AE520D0C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6368507-DA3F-4852-8BD8-1713AE520D0C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6368507-DA3F-4852-8BD8-1713AE520D0C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6368507-DA3F-4852-8BD8-1713AE520D0C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
